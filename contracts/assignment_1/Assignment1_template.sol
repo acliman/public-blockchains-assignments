@@ -15,6 +15,13 @@ pragma solidity ^0.8.17;
 // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC721/extensions/ERC721URIStorage.sol
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/utils/Base64.sol";
+
 
 // TODO:
 // Other openzeppelin contracts might be useful. Check the Utils!
@@ -36,10 +43,13 @@ import "./INFTMINTER.sol";
 // You need to inherit from multiple contracts/interfaces.
 contract Assignment1 is INFTMINTER, ERC721URIStorage, BaseAssignment {
 
-    
+    using Counters for Counters.Counter;
+    using Base64 for bytes;
+    using Strings for uint256;
+
     // TODO: 
     // Add the ipfs hash of an image that you uploaded to IPFS.
-    string IPFSHash = "";
+    string public IPFSHash = "QmQQERdQr7Cf5hZD81Xuq3i32vaTM2hYK1Gy6zgVHfB9EA";
 
     // Total supply.
     uint256 public totalSupply;
@@ -49,13 +59,15 @@ contract Assignment1 is INFTMINTER, ERC721URIStorage, BaseAssignment {
 
     // TODO: 
     // Add more state variables, as needed.
+    Counters.Counter private _tokenIdCounter;
+    bool public isActive = true;
 
     // TODO: 
     // Adjust the Token name and ticker as you like.
     // Very important! The validator address must be passed to the 
     // BaseAssignment constructor (already inserted here).
     constructor()
-        ERC721("Token", "TKN")
+        ERC721("Assignment1Token", "A1T")
         BaseAssignment(0x80A2FBEC8E3a12931F68f1C1afedEf43aBAE8541)
     {}
 
@@ -66,13 +78,25 @@ contract Assignment1 is INFTMINTER, ERC721URIStorage, BaseAssignment {
 
         // 1. First, check if the conditions for minting are met.
 
+        require (_address != address(0), "No address is given for minting!");
+        require (isActive, "Contract is inactive!");
+        require (bytes(IPFSHash).length > 0, "IPFS hash is not set!");
+        require (msg.value >= price, "Insufficient balance!");
+        // require (validators[msg.sender] == true, "Only validator can perform this action");        
+
         // 2. Then increment total supply and price.
-       
+        totalSupply +=1;
+        price = price + 0.0001 ether;
+
         // 3. Get the current token id, after incrementing it.
         // Hint: Open Zeppelin has methods for this.
+        _tokenIdCounter.increment();
+        uint256 newTokenId = _tokenIdCounter.current();
+
 
         // 4. Mint the token.
         // Hint: Open Zeppelin has a method for this.
+        _mint(_address, newTokenId);
 
         // 5. Compose the token URI with metadata info.
         // You might use the helper function getTokenURI.
@@ -80,11 +104,15 @@ contract Assignment1 is INFTMINTER, ERC721URIStorage, BaseAssignment {
         // Hint: Learn about data locations.
         // https://dev.to/jamiescript/data-location-in-solidity-12di
         // https://solidity-by-example.org/data-locations/
+        string memory tokenURI = getTokenURI(newTokenId, _address);
+        
         
         // 6. Set encoded token URI to token.
         // Hint: Open Zeppelin has a method for this.
-        
+        _setTokenURI(newTokenId, tokenURI);
+
         // 7. Return the NFT id.
+        return newTokenId;
     }
 
 
@@ -92,6 +120,61 @@ contract Assignment1 is INFTMINTER, ERC721URIStorage, BaseAssignment {
     // Other methods of the INFTMINTER interface to be added here. 
     // Hint: all methods of an interface are external, but here you might
     // need to adjust them to public.
+
+    // Burn a nft.
+    function burn(uint256 tokenId) public payable {
+        require(_exists(tokenId), "Token doesn't exist");
+        require(ownerOf(tokenId) == msg.sender, "Not token owner");
+
+        totalSupply -=1;
+        price = price - 0.0001 ether;
+
+        _burn(tokenId);
+    }
+
+    // Flip sale status.
+    function flipSaleStatus() public {
+        require (msg.sender == getOwner() || isValidator(msg.sender), "Only validator can change status");
+        isActive = !isActive;
+    }
+
+    // Get sale status.
+    function getSaleStatus() public view returns (bool) {
+        return isActive;
+    }
+
+    // Withdraw all funds to owner.
+    function withdraw(uint256 amount) public {
+        require (msg.sender == getOwner() || isValidator(msg.sender), "Only owner or validator can withdraw");
+        require (address(this).balance >= amount, "Insufficient balance!");
+        sendViaCall (payable(msg.sender), amount); 
+    }
+
+    // Get current price.
+    function getPrice() public view returns (uint256) {
+        // require (price <= 0.05 ether, "Price for minting is too high, exceeding max. limit (0.05 ETH)");
+        return price;
+    }
+
+    // Get total supply.
+    function getTotalSupply() public view returns (uint256) {
+        return totalSupply;
+    }
+
+    // Get IPFS hash. 
+    function getIPFSHash() public view returns (string memory) {
+        return IPFSHash;
+    }
+
+    function sendViaCall(address payable _to, uint256 _amount) public payable {
+        // Call returns a boolean value indicating success or failure.
+        // This is the current recommended method to use.
+        (bool sent, bytes memory data) = _to.call{value: _amount}("");
+        require(sent, "Failed to send Ether");
+    }
+
+    
+
 
     /*=============================================
     =                   HELPER                  =
@@ -132,4 +215,6 @@ contract Assignment1 is INFTMINTER, ERC721URIStorage, BaseAssignment {
     }
 
     /*=====         End of HELPER         ======*/
+    
 }
+

@@ -1,3 +1,9 @@
+// Implement an NFT minter that creates standard ERC-721 tokens. Use of third-party libraries, e.g., Open Zeppelin, is allowed. (3 pts)
+// • Implement the INFTMinter interface.
+// • To start off your contract, you may build on top of this contract template.
+// • The mint function creates a new NFT, assigns it to the requester address, and returns the current NFT id.
+// • Each mint increases a variable (e.g., totalSupply) by one; the function getTotalSupply returns this value.
+
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
@@ -25,6 +31,6 @@ interface INFTMINTER {
     // Get total supply.
     function getTotalSupply() external view returns (uint256);
 
-    // Get IPFS hash.
+    // Get IPFS hash. 
     function getIPFSHash() external view returns (string memory);
 }
